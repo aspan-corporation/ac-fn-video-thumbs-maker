@@ -1,7 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
-import { QueueLambdaConstruct } from "@aspan-corporation/ac-cdk-constructs";
+import { QueueLambdaConstruct } from "@aspan-corporation/ac-shared-cdk";
 import * as path from "path";
 
 export class AcFnVideoThumbsMakerStack extends cdk.Stack {
@@ -14,7 +14,7 @@ export class AcFnVideoThumbsMakerStack extends cdk.Stack {
       "VideoThumbnailProcessor",
       {
         code: lambda.Code.fromAsset(
-          path.join(__dirname, "../lambda/thumbnail-processor")
+          path.join(__dirname, "../src/thumbnail-processor")
         ),
         handler: "index.handler",
         memorySize: 2048, // More memory for video processing
