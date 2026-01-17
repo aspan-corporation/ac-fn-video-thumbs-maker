@@ -1,3 +1,1 @@
-#AC Video Thumbs Maker
-# ac-shared-cdk
-# ac-shared-cdk
+# ac-fn-video-thumbs-maker
