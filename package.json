@@ -27,7 +27,7 @@
     "typescript": "~5.9.3"
   },
   "dependencies": {
-    "@aspan-corporation/ac-cdk-constructs": "file:../ac-cdk-constructs",
+    "@aspan-corporation/ac-shared-cdk": "file:../ac-shared-cdk",
     "aws-cdk-lib": "2.232.1",
     "constructs": "^10.0.0"
   }
