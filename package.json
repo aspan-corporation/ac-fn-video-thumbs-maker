@@ -4,6 +4,7 @@
   "bin": {
     "ac-fn-video-thumbs-maker": "bin/ac-fn-video-thumbs-maker.js"
   },
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
@@ -19,34 +20,33 @@
     "compile": "tsc",
     "test": "npm run compile && npm run unit",
     "start:local": "ts-node-esm",
-    "start:watch": "npx nodemon --ext 'ts' --exec ts-node-esm index.ts"
+    "start:watch": "npx nodemon --ext 'ts' --exec ts-node-esm index.ts",
+    "clean:tsc": "find . -type f \\( -name '*.js' -o -name '*.d.ts' -o -name '*.js.map' \\) ! -path './node_modules/*' ! -path './cdk.out/*' ! -name 'jest.config.js' ! -name 'eslint.config.js' -delete",
+    "clean:cdk": "rm -rf cdk.out",
+    "clean": "npm run clean:tsc && npm run clean:cdk"
   },
   "devDependencies": {
+    "@aspan-corporation/ac-shared-cdk": "file:../ac-shared-cdk",
+    "@aws-lambda-powertools/batch": "^2.29.0",
     "@types/aws-lambda": "^8.10.159",
     "@types/jest": "^29.5.14",
     "@types/node": "^24.10.1",
-    "aws-cdk": "2.1100.1",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.2.5",
-    "ts-node": "^10.9.2",
-    "typescript": "~5.9.3",
-    "@aws-lambda-powertools/batch": "^2.29.0",
-    "@types/http-errors": "^2.0.5",
     "@typescript-eslint/eslint-plugin": "^8.47.0",
     "@typescript-eslint/parser": "^8.47.0",
+    "aws-cdk": "2.1100.1",
+    "aws-cdk-lib": "2.232.1",
+    "esbuild": "^0.17.6",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
+    "jest": "^29.7.0",
     "prettier": "^3.6.2",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.9.3",
     "typescript-eslint": "^8.47.0"
   },
   "dependencies": {
-    "@aspan-corporation/ac-shared": "file:../ac-shared",
-    "@aspan-corporation/ac-shared-cdk": "file:../ac-shared-cdk",
-    "aws-cdk-lib": "2.232.1",
-    "constructs": "^10.0.0",
-    "@aws-lambda-powertools/idempotency": "^2.30.0",
-    "esbuild": "^0.17.6",
-    "http-errors": "^2.0.1"
+    "@aspan-corporation/ac-shared": "file:../ac-shared"
   }
 }

@@ -1,5 +1,10 @@
-import { S3Service, MetricUnit } from "@aspan-corporation/ac-shared";
-import { Context } from "aws-lambda";
+import { AcContext, MetricUnit, S3Service } from "@aspan-corporation/ac-shared";
+import {
+  DIM_THUMBNAIL_WIDTH,
+  DIM_DETAIL_HEIGHT,
+  getThumbnailKey,
+  DIM_THUMBNAIL_HEIGHT
+} from "@aspan-corporation/ac-shared/utils";
 import { spawn } from "child_process";
 
 const FFMPEG_PATH = "/opt/bin/ffmpeg";
@@ -9,44 +14,56 @@ type EncodeVideoParams = {
   sourceKey: string;
   destinationS3Service: S3Service;
   destinationBucket: string;
-  destinationKey: string;
 };
 
 /**
  * Resizes an image and uploads it to S3. Output is always in JPEG format.
  */
-export const encodeVideo = async (
+export const makeThumbnail = async (
   {
     sourceBucket,
     sourceKey,
     destinationBucket,
-    destinationKey,
     destinationS3Service,
-    sourceS3Service,
+    sourceS3Service
   }: EncodeVideoParams,
-  { logger, metrics }: Context,
+  { logger, metrics }: AcContext
 ) => {
-  logger.debug("VideoEncodingsStarted", { sourceKey });
-  metrics.addMetric("VideoEncodingsStarted", MetricUnit.Count, 1);
+  logger.debug("MakeThumbnailsStarted", { sourceKey });
+  metrics.addMetric("MakeThumbnailsStarted", MetricUnit.Count, 1);
+
+  const destinationKey = getThumbnailKey({
+    key: sourceKey,
+    width: DIM_THUMBNAIL_WIDTH,
+    height: DIM_DETAIL_HEIGHT
+  });
 
   const { stream, done } = destinationS3Service.createS3UploadStream({
     Bucket: destinationBucket,
-    Key: destinationKey,
+    Key: destinationKey
   });
 
   const signedSourceUrl = await sourceS3Service.getSignedUrl({
     Bucket: sourceBucket,
-    Key: sourceKey,
+    Key: sourceKey
   });
 
   const ffmpeg = spawn(FFMPEG_PATH, [
     "-i",
     signedSourceUrl,
-    "-movflags",
-    "frag_keyframe+empty_moov+default_base_moof",
+    "-vf",
+    `scale=${DIM_THUMBNAIL_WIDTH}:${
+      DIM_THUMBNAIL_HEIGHT
+    }:force_original_aspect_ratio=increase,crop=${DIM_THUMBNAIL_WIDTH}:${DIM_THUMBNAIL_HEIGHT}`,
+    "-frames:v",
+    "1",
+    "-c:v",
+    "libwebp",
+    "-quality",
+    "80",
     "-f",
-    "mp4",
-    "pipe:1",
+    "webp",
+    "pipe:1"
   ]);
 
   ffmpeg.stdout.pipe(stream);
@@ -66,11 +83,11 @@ export const encodeVideo = async (
 
   await done;
 
-  logger.debug("VideoEncodingsFinished", {
+  logger.debug("MakeThumbnailsFinished", {
     exitCode,
-    sourceKey,
+    sourceKey
   });
-  metrics.addMetric("VideoEncodingsFinished", MetricUnit.Count, 1);
+  metrics.addMetric("MakeThumbnailsFinished", MetricUnit.Count, 1);
 
   logger.debug("uploaded encoded video", { sourceKey, destinationKey });
 };
