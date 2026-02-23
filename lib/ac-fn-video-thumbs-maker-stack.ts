@@ -21,25 +21,25 @@ export class AcFnVideoThumbsMakerStack extends cdk.Stack {
     );
 
     // Get centralized log group from monitoring stack
-    const centralLogGroupName = ssm.StringParameter.valueForStringParameter(
+    const centralLogGroupArn = ssm.StringParameter.valueForStringParameter(
       this,
-      "/ac/monitoring/central-log-group-name"
+      "/ac/monitoring/central-log-group-arn"
     );
-    const centralLogGroup = logs.LogGroup.fromLogGroupName(
+    const centralLogGroup = logs.LogGroup.fromLogGroupArn(
       this,
       "CentralLogGroup",
-      centralLogGroupName
+      centralLogGroupArn
     );
 
-    // Create the Queue + Lambda construct for video encoding processing
-    const videoEncoderProcessor = new QueueLambdaConstruct(
+    // Create the Queue + Lambda construct for video thumbnail processing
+    const videoThumbnailProcessor = new QueueLambdaConstruct(
       this,
-      "VideoThumbnailProcessorProcessor",
+      "VideoThumbnailProcessor",
       {
         entry: path.join(currentDirPath, "../src/thumbnail-processor/app.ts"),
         handler: "handler",
         logGroup: centralLogGroup,
-        memorySize: 2048, // More memory for video processing
+        memorySize: 512, // More memory for video processing
         timeout: cdk.Duration.minutes(5), // Max Lambda timeout
         batchSize: 1, // Process one video at a time
         maxReceiveCount: 3, // Retry up to 3 times before sending to DLQ
@@ -88,7 +88,7 @@ export class AcFnVideoThumbsMakerStack extends cdk.Stack {
       this
     );
 
-    videoEncoderProcessor.processor.addToRolePolicy(
+    videoThumbnailProcessor.processor.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
           "dynamodb:PutItem",
@@ -103,7 +103,7 @@ export class AcFnVideoThumbsMakerStack extends cdk.Stack {
     );
 
     // Allow Lambda to assume the S3 media read access role
-    videoEncoderProcessor.processor.addToRolePolicy(
+    videoThumbnailProcessor.processor.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["sts:AssumeRole"],
         resources: [
@@ -118,7 +118,7 @@ export class AcFnVideoThumbsMakerStack extends cdk.Stack {
       "/ac/storage/thumbs-bucket-arn"
     );
 
-    videoEncoderProcessor.processor.addToRolePolicy(
+    videoThumbnailProcessor.processor.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["s3:PutObject"],
         resources: [`${thumbsBucketArn}/*`]
@@ -126,9 +126,9 @@ export class AcFnVideoThumbsMakerStack extends cdk.Stack {
     );
 
     // Store the queue URL in SSM Parameter Store for external access
-    new ssm.StringParameter(this, "VideoThumbnailProcessingQueueUrlParameter", {
-      parameterName: "/ac/video-thumbnail-processing/queue-url",
-      stringValue: videoEncoderProcessor.queue.queueUrl
+    new ssm.StringParameter(this, "VideoThumbnailProcessorQueueUrlParameter", {
+      parameterName: "/ac/video-thumbnail-processor/queue-url",
+      stringValue: videoThumbnailProcessor.queue.queueUrl
     });
   }
 }

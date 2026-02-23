@@ -1,9 +1,8 @@
 import { AcContext, MetricUnit, S3Service } from "@aspan-corporation/ac-shared";
 import {
+  DIM_THUMBNAIL_HEIGHT,
   DIM_THUMBNAIL_WIDTH,
-  DIM_DETAIL_HEIGHT,
-  getThumbnailKey,
-  DIM_THUMBNAIL_HEIGHT
+  getThumbnailKey
 } from "@aspan-corporation/ac-shared/utils";
 import { spawn } from "child_process";
 
@@ -35,7 +34,7 @@ export const makeThumbnail = async (
   const destinationKey = getThumbnailKey({
     key: sourceKey,
     width: DIM_THUMBNAIL_WIDTH,
-    height: DIM_DETAIL_HEIGHT
+    height: DIM_THUMBNAIL_HEIGHT
   });
 
   const { stream, done } = destinationS3Service.createS3UploadStream({
