@@ -39,7 +39,7 @@ export class AcFnVideoThumbsMakerStack extends cdk.Stack {
         entry: path.join(currentDirPath, "../src/thumbnail-processor/app.ts"),
         handler: "handler",
         logGroup: centralLogGroup,
-        memorySize: 512, // More memory for video processing
+        memorySize: 1536, // More memory for video processing
         timeout: cdk.Duration.minutes(5), // Max Lambda timeout
         batchSize: 1, // Process one video at a time
         maxReceiveCount: 3, // Retry up to 3 times before sending to DLQ
@@ -107,7 +107,7 @@ export class AcFnVideoThumbsMakerStack extends cdk.Stack {
       new iam.PolicyStatement({
         actions: ["sts:AssumeRole"],
         resources: [
-          "arn:aws:iam::433003433222:role/aspan-corporation/ac-s3-media-read-access"
+          `arn:aws:iam::${this.account}:role/aspan-corporation/ac-s3-media-read-access`
         ]
       })
     );

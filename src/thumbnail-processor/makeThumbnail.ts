@@ -16,7 +16,7 @@ type EncodeVideoParams = {
 };
 
 /**
- * Resizes an image and uploads it to S3. Output is always in JPEG format.
+ * Extracts a thumbnail from a video using FFmpeg and uploads it to S3. Output is always in WebP format.
  */
 export const makeThumbnail = async (
   {
@@ -28,6 +28,11 @@ export const makeThumbnail = async (
   }: EncodeVideoParams,
   { logger, metrics }: AcContext
 ) => {
+  if (!Number.isInteger(DIM_THUMBNAIL_WIDTH) || DIM_THUMBNAIL_WIDTH <= 0 ||
+      !Number.isInteger(DIM_THUMBNAIL_HEIGHT) || DIM_THUMBNAIL_HEIGHT <= 0) {
+    throw new Error(`Invalid thumbnail dimensions: ${DIM_THUMBNAIL_WIDTH}x${DIM_THUMBNAIL_HEIGHT}`);
+  }
+
   logger.debug("MakeThumbnailsStarted", { sourceKey });
   metrics.addMetric("MakeThumbnailsStarted", MetricUnit.Count, 1);
 
@@ -63,17 +68,22 @@ export const makeThumbnail = async (
     "-f",
     "webp",
     "pipe:1"
-  ]);
+  ], { timeout: 270000 });
 
   ffmpeg.stdout.pipe(stream);
 
   ffmpeg.stderr.on("data", (d) => {
-    // !d.toString().includes("frame=") && logger.info(d.toString());
+    if (!d.toString().includes("frame=")) logger.debug(d.toString());
   });
 
   const exitCode = await new Promise((resolve, reject) => {
-    ffmpeg.on("close", resolve);
-    ffmpeg.on("error", reject);
+    let settled = false;
+    ffmpeg.on("close", (code) => {
+      if (!settled) { settled = true; resolve(code); }
+    });
+    ffmpeg.on("error", (err) => {
+      if (!settled) { settled = true; reject(err); }
+    });
   });
 
   if (exitCode !== 0) {
