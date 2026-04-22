@@ -8,17 +8,17 @@ import assert from "node:assert/strict";
 import { makeThumbnail } from "./makeThumbnail.ts";
 
 const destinationBucket = assertEnvVar("DESTINATION_BUCKET_NAME");
+const metaTableName = assertEnvVar("AC_TAU_MEDIA_META_TABLE_NAME");
+const TAG_HIDDEN = "ac:ediacara:hidden";
 
 export const recordHandler = async (
   record: SQSRecord,
   context: AcContext
 ): Promise<void> => {
-  const { sourceS3Service, destinationS3Service } = context.acServices || {};
+  const { sourceS3Service, destinationS3Service, dynamoDBService } = context.acServices || {};
   assert(sourceS3Service, "s3Service is required in servicesContext");
-  assert(
-    destinationS3Service,
-    "destinantionS3Service is required in servicesContext"
-  );
+  assert(destinationS3Service, "destinantionS3Service is required in servicesContext");
+  assert(dynamoDBService, "dynamoDBService is required in servicesContext");
 
   const payload = record.body;
   assert(payload, "SQS record has no body");
@@ -33,6 +33,15 @@ export const recordHandler = async (
 
   if (!isAllowedVideoExtension(sourceKey)) {
     throw new Error(`extension for ${sourceKey} is not supported`);
+  }
+
+  const { Item: metaItem } = await dynamoDBService.getCommand({
+    TableName: metaTableName,
+    Key: { id: sourceKey },
+  });
+  if ((metaItem?.tags as { key: string }[] | undefined)?.some((t) => t.key === TAG_HIDDEN)) {
+    context.logger.info("Skipping hidden file", { sourceKey });
+    return;
   }
 
   await makeThumbnail(

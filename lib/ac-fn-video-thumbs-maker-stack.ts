@@ -63,6 +63,11 @@ export class AcFnVideoThumbsMakerStack extends cdk.Stack {
               this,
               "/ac/data/idempotency-table-name"
             ),
+          AC_TAU_MEDIA_META_TABLE_NAME:
+            ssm.StringParameter.valueForStringParameter(
+              this,
+              "/ac/data/meta-table-name"
+            ),
           AC_TAU_MEDIA_MEDIA_BUCKET_ACCESS_ROLE_ARN:
             ssm.StringParameter.valueForStringParameter(
               this,
@@ -88,6 +93,18 @@ export class AcFnVideoThumbsMakerStack extends cdk.Stack {
       this
     );
 
+    const metaTableNameResolved = "AcDataStack-metadata";
+    const metaTableArn = cdk.Arn.format(
+      {
+        partition: "aws",
+        service: "dynamodb",
+        region: this.region,
+        account: this.account,
+        resource: `table/${metaTableNameResolved}`
+      },
+      this
+    );
+
     videoThumbnailProcessor.processor.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -99,6 +116,13 @@ export class AcFnVideoThumbsMakerStack extends cdk.Stack {
           "dynamodb:ConditionCheckItem"
         ],
         resources: [idempotencyTableArn]
+      })
+    );
+
+    videoThumbnailProcessor.processor.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["dynamodb:GetItem", "dynamodb:DescribeTable"],
+        resources: [metaTableArn]
       })
     );
 
