@@ -3,6 +3,7 @@ import {
   assertEnvVar,
   isAllowedVideoExtension
 } from "@aspan-corporation/ac-shared";
+import { SFNClient, SendTaskSuccessCommand } from "@aws-sdk/client-sfn";
 import type { S3ObjectCreatedNotificationEvent, SQSRecord } from "aws-lambda";
 import assert from "node:assert/strict";
 import { makeThumbnail } from "./makeThumbnail.ts";
@@ -10,6 +11,7 @@ import { makeThumbnail } from "./makeThumbnail.ts";
 const destinationBucket = assertEnvVar("DESTINATION_BUCKET_NAME");
 const metaTableName = assertEnvVar("AC_TAU_MEDIA_META_TABLE_NAME");
 const TAG_HIDDEN = "ac:ediacara:hidden";
+const sfnClient = new SFNClient({});
 
 export const recordHandler = async (
   record: SQSRecord,
@@ -22,14 +24,16 @@ export const recordHandler = async (
 
   const payload = record.body;
   assert(payload, "SQS record has no body");
-  const item = JSON.parse(payload);
+  const parsed = JSON.parse(payload) as Record<string, unknown>;
+  const taskToken = typeof parsed.taskToken === "string" ? parsed.taskToken : undefined;
+  const item = parsed as unknown as S3ObjectCreatedNotificationEvent;
 
   const {
     detail: {
       object: { key: sourceKey, size },
       bucket: { name: sourceBucket }
     }
-  } = item as S3ObjectCreatedNotificationEvent;
+  } = item;
 
   if (!isAllowedVideoExtension(sourceKey)) {
     throw new Error(`extension for ${sourceKey} is not supported`);
@@ -45,13 +49,14 @@ export const recordHandler = async (
   }
 
   await makeThumbnail(
-    {
-      sourceS3Service,
-      sourceBucket,
-      sourceKey,
-      destinationS3Service,
-      destinationBucket
-    },
+    { sourceS3Service, sourceBucket, sourceKey, destinationS3Service, destinationBucket },
     context
   );
+
+  if (taskToken) {
+    await sfnClient.send(new SendTaskSuccessCommand({
+      taskToken,
+      output: JSON.stringify({ thumbnailGenerated: true }),
+    }));
+  }
 };

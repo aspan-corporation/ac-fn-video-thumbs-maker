@@ -149,10 +149,14 @@ export class AcFnVideoThumbsMakerStack extends cdk.Stack {
       })
     );
 
-    // Store the queue URL in SSM Parameter Store for external access
+    // Store the queue URL and ARN in SSM for external access
     new ssm.StringParameter(this, "VideoThumbnailProcessorQueueUrlParameter", {
       parameterName: "/ac/video-thumbnail-processor/queue-url",
       stringValue: videoThumbnailProcessor.queue.queueUrl
+    });
+    new ssm.StringParameter(this, "VideoThumbnailProcessorQueueArnParameter", {
+      parameterName: "/ac/video-thumbnail-processor/queue-arn",
+      stringValue: videoThumbnailProcessor.queue.queueArn
     });
   }
 }

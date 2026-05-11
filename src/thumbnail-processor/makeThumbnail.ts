@@ -7,6 +7,26 @@ import {
 import { spawn } from "child_process";
 
 const FFMPEG_PATH = "/opt/bin/ffmpeg";
+const FFPROBE_PATH = "/opt/bin/ffprobe";
+
+const detectRotation = async (signedUrl: string): Promise<number> => {
+  const ffprobe = spawn(FFPROBE_PATH, [
+    "-i", signedUrl,
+    "-select_streams", "v:0",
+    "-show_entries", "stream_side_data=rotation",
+    "-v", "quiet",
+    "-of", "csv=p=0",
+  ], { timeout: 30000 });
+  return new Promise((resolve) => {
+    let out = "";
+    ffprobe.stdout.on("data", (d: Buffer) => { out += d.toString(); });
+    ffprobe.on("close", () => {
+      const angle = parseInt(out.trim(), 10);
+      resolve(isNaN(angle) ? 0 : ((angle % 360) + 360) % 360);
+    });
+    ffprobe.on("error", () => resolve(0));
+  });
+};
 type EncodeVideoParams = {
   sourceS3Service: S3Service;
   sourceBucket: string;
@@ -52,11 +72,17 @@ export const makeThumbnail = async (
     Key: sourceKey
   });
 
+  const rotation = await detectRotation(signedSourceUrl);
+  const rotateFilter = rotation === 90  ? "transpose=1,"
+                     : rotation === 180 ? "transpose=1,transpose=1,"
+                     : rotation === 270 ? "transpose=2,"
+                     : "";
+
   const ffmpeg = spawn(FFMPEG_PATH, [
     "-i",
     signedSourceUrl,
     "-vf",
-    `scale=${DIM_THUMBNAIL_WIDTH}:${
+    `${rotateFilter}scale=${DIM_THUMBNAIL_WIDTH}:${
       DIM_THUMBNAIL_HEIGHT
     }:force_original_aspect_ratio=increase,crop=${DIM_THUMBNAIL_WIDTH}:${DIM_THUMBNAIL_HEIGHT}`,
     "-frames:v",
