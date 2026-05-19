@@ -78,13 +78,30 @@ export const makeThumbnail = async (
                      : rotation === 270 ? "transpose=2,"
                      : "";
 
+  // Filter chain explained:
+  //   scale=W:H:force_original_aspect_ratio=decrease
+  //     Shrink the frame so it fits *entirely* inside WxH while keeping the
+  //     original aspect ratio. Previously this used `increase,crop=W:H` which
+  //     cropped the edges to fill the box — same problem as the image path.
+  //   pad=W:H:(W-iw)/2:(H-ih)/2:color=black@0
+  //     Centre the scaled frame on a WxH canvas and fill the leftover bars
+  //     with fully transparent pixels (`black@0` = alpha 0). Matches the
+  //     image thumbnails, which also use transparent letterboxing.
+  //   format=yuva420p
+  //     Promote the pixel format to one that carries an alpha channel; without
+  //     this the pad filter's transparent fill would collapse to opaque black
+  //     because the source video is yuv420p with no alpha plane. yuva420p is
+  //     the alpha variant of yuv420p and is what libwebp expects for
+  //     transparent WebP output.
   const ffmpeg = spawn(FFMPEG_PATH, [
     "-i",
     signedSourceUrl,
     "-vf",
     `${rotateFilter}scale=${DIM_THUMBNAIL_WIDTH}:${
       DIM_THUMBNAIL_HEIGHT
-    }:force_original_aspect_ratio=increase,crop=${DIM_THUMBNAIL_WIDTH}:${DIM_THUMBNAIL_HEIGHT}`,
+    }:force_original_aspect_ratio=decrease,pad=${DIM_THUMBNAIL_WIDTH}:${
+      DIM_THUMBNAIL_HEIGHT
+    }:(${DIM_THUMBNAIL_WIDTH}-iw)/2:(${DIM_THUMBNAIL_HEIGHT}-ih)/2:color=black@0,format=yuva420p`,
     "-frames:v",
     "1",
     "-c:v",
